@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/context/AuthContext";
 
 interface Usuario {
   id: string;
@@ -38,6 +39,8 @@ export default function Configuracoes() {
   const [tipoAgenda, setTipoAgenda] = useState('global');
   const [createUserDialog, setCreateUserDialog] = useState(false);
   const [primaryColor, setPrimaryColor] = useState('#2563eb');
+  const { user } = useAuth();
+  const isReadOnly = user?.role === 'empresa-atendente' || user?.role === 'empresa-profissional';
 
   const handleSave = (section: string) => {
     toast({
@@ -45,6 +48,22 @@ export default function Configuracoes() {
       description: `As configurações de ${section} foram salvas (mock)`,
     });
   };
+
+  if (user?.role === 'empresa-atendente' || user?.role === 'empresa-profissional') {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader
+          title="Configurações"
+          description="Gerencie as configurações da sua empresa"
+        />
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Acesso às configurações não está disponível para o seu perfil.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -69,30 +88,37 @@ export default function Configuracoes() {
               <CardDescription>Informações básicas da sua empresa</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {isReadOnly && (
+                <p className="text-sm text-muted-foreground">
+                  Perfil de atendente possui acesso somente leitura.
+                </p>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Nome da Empresa</Label>
-                  <Input defaultValue="Barbearia Premium" />
+                  <Input defaultValue="Barbearia Premium" disabled={isReadOnly} />
                 </div>
                 <div className="space-y-2">
                   <Label>CNPJ</Label>
-                  <Input defaultValue="12.345.678/0001-90" />
+                  <Input defaultValue="12.345.678/0001-90" disabled={isReadOnly} />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input type="email" defaultValue="contato@barbearia.com" />
+                  <Input type="email" defaultValue="contato@barbearia.com" disabled={isReadOnly} />
                 </div>
                 <div className="space-y-2">
                   <Label>Telefone</Label>
-                  <Input defaultValue="(11) 99999-9999" />
+                  <Input defaultValue="(11) 99999-9999" disabled={isReadOnly} />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Endereço</Label>
-                  <Input defaultValue="Rua das Flores, 123 - São Paulo, SP" />
+                  <Input defaultValue="Rua das Flores, 123 - São Paulo, SP" disabled={isReadOnly} />
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button onClick={() => handleSave('dados')}>Salvar</Button>
+                <Button onClick={() => handleSave('dados')} disabled={isReadOnly} className={isReadOnly ? "cursor-not-allowed opacity-60" : ""}>
+                  Salvar
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -106,10 +132,15 @@ export default function Configuracoes() {
               <CardDescription>Configure como a agenda funciona</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {isReadOnly && (
+                <p className="text-sm text-muted-foreground">
+                  Perfil de atendente possui acesso somente leitura.
+                </p>
+              )}
               <div className="space-y-2">
                 <Label>Tipo de Agenda</Label>
-                <Select value={tipoAgenda} onValueChange={setTipoAgenda}>
-                  <SelectTrigger className="w-full max-w-xs">
+                <Select value={tipoAgenda} onValueChange={setTipoAgenda} disabled={isReadOnly}>
+                  <SelectTrigger className="w-full max-w-xs" disabled={isReadOnly}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -129,22 +160,22 @@ export default function Configuracoes() {
                     <Label>Permitir agendamento online</Label>
                     <p className="text-sm text-muted-foreground">Clientes podem agendar via WhatsApp</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked disabled={isReadOnly} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Confirmação automática</Label>
                     <p className="text-sm text-muted-foreground">Confirmar agendamentos automaticamente</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked disabled={isReadOnly} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Intervalo entre agendamentos</Label>
                     <p className="text-sm text-muted-foreground">Tempo mínimo entre atendimentos</p>
                   </div>
-                  <Select defaultValue="15">
-                    <SelectTrigger className="w-[120px]">
+                  <Select defaultValue="15" disabled={isReadOnly}>
+                    <SelectTrigger className="w-[120px]" disabled={isReadOnly}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -159,7 +190,9 @@ export default function Configuracoes() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={() => handleSave('agendamento')}>Salvar</Button>
+                <Button onClick={() => handleSave('agendamento')} disabled={isReadOnly} className={isReadOnly ? "cursor-not-allowed opacity-60" : ""}>
+                  Salvar
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -173,7 +206,7 @@ export default function Configuracoes() {
                 <CardTitle>Usuários Internos</CardTitle>
                 <CardDescription>Gerencie os usuários da empresa</CardDescription>
               </div>
-              <Button onClick={() => setCreateUserDialog(true)}>
+              <Button onClick={() => setCreateUserDialog(true)} disabled={isReadOnly} className={isReadOnly ? "cursor-not-allowed opacity-60" : ""}>
                 <UserPlus className="h-4 w-4 mr-2" />
                 Novo Usuário
               </Button>
@@ -193,7 +226,7 @@ export default function Configuracoes() {
                     key: 'actions',
                     header: '',
                     render: () => (
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" disabled={isReadOnly}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     ),
@@ -213,13 +246,18 @@ export default function Configuracoes() {
               <CardDescription>Personalize a aparência do sistema</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {isReadOnly && (
+                <p className="text-sm text-muted-foreground">
+                  Perfil de atendente possui acesso somente leitura.
+                </p>
+              )}
               <div className="space-y-2">
                 <Label>Logo da Empresa</Label>
                 <div className="flex items-center gap-4">
                   <div className="h-20 w-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted">
                     <Upload className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <Button variant="outline">Upload Logo</Button>
+                  <Button variant="outline" disabled={isReadOnly} className={isReadOnly ? "cursor-not-allowed opacity-60" : ""}>Upload Logo</Button>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Recomendado: PNG ou SVG, 256x256px
@@ -228,7 +266,7 @@ export default function Configuracoes() {
 
               <div className="space-y-2">
                 <Label>Nome Exibido</Label>
-                <Input defaultValue="Barbearia Premium" />
+                <Input defaultValue="Barbearia Premium" disabled={isReadOnly} />
                 <p className="text-sm text-muted-foreground">
                   Nome que aparece para os clientes
                 </p>
@@ -242,17 +280,21 @@ export default function Configuracoes() {
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
                     className="w-16 h-10 p-1 cursor-pointer"
+                    disabled={isReadOnly}
                   />
                   <Input
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
                     className="w-32"
+                    disabled={isReadOnly}
                   />
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={() => handleSave('personalização')}>Salvar</Button>
+                <Button onClick={() => handleSave('personalização')} disabled={isReadOnly} className={isReadOnly ? "cursor-not-allowed opacity-60" : ""}>
+                  Salvar
+                </Button>
               </div>
             </CardContent>
           </Card>

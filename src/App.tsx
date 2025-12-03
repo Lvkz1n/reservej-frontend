@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 // Pages
+import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
 
@@ -49,21 +50,15 @@ function AppRoutes() {
 
   return (
     <Routes>
+      {/* Landing */}
+      <Route path="/" element={<Landing />} />
+
       {/* Public */}
       <Route path="/login" element={
         isAuthenticated ? (
           <Navigate to={user?.role === 'super-admin' ? '/super-admin' : '/empresa'} replace />
         ) : (
           <Login />
-        )
-      } />
-
-      {/* Index redirect */}
-      <Route path="/" element={
-        isAuthenticated ? (
-          <Navigate to={user?.role === 'super-admin' ? '/super-admin' : '/empresa'} replace />
-        ) : (
-          <Navigate to="/login" replace />
         )
       } />
 

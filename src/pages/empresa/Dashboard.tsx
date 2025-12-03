@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { DataTable } from "@/components/ui/data-table";
@@ -5,8 +6,14 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { dashboardEmpresa, mockAgendamentos, Agendamento } from "@/mock/data";
 import { Calendar, CalendarCheck, Users, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/context/AuthContext";
 
 export default function EmpresaDashboard() {
+  const { user } = useAuth();
+  if (user?.role === 'empresa-atendente') {
+    return <Navigate to="/empresa/agenda" replace />;
+  }
+
   const proximosAgendamentos = mockAgendamentos
     .filter((a) => a.status !== 'Cancelado')
     .slice(0, 5);

@@ -36,6 +36,16 @@ export function EmpresaLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const roleIsLimited = user?.role === "empresa-atendente" || user?.role === "empresa-profissional";
+  const homePath = user?.role === "empresa-atendente" ? "/empresa/agenda" : "/empresa";
+  const filteredMenuItems = roleIsLimited
+    ? menuItems.filter(
+        (item) =>
+          item.path !== "/empresa/configuracoes" &&
+          item.path !== "/empresa" &&
+          item.path !== "/empresa/whatsapp"
+      )
+    : menuItems;
 
   const getRoleLabel = () => {
     switch (user?.role) {
@@ -71,7 +81,7 @@ export function EmpresaLayout() {
       >
         {/* Logo & Company */}
         <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-          <Link to="/empresa" className="flex items-center gap-3">
+          <Link to={homePath} className="flex items-center gap-3">
             <img src={logo} alt="ReserveJá" className="h-8 w-8" />
             {sidebarOpen && (
               <div className="flex flex-col">
@@ -94,7 +104,7 @@ export function EmpresaLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const isActive = location.pathname === item.path || 
               (item.path !== '/empresa' && location.pathname.startsWith(item.path));
             return (

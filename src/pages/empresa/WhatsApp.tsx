@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Smartphone, RefreshCw, LogOut, QrCode } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
 export default function WhatsApp() {
+  const { user } = useAuth();
+  const isLimited = user?.role === "empresa-atendente" || user?.role === "empresa-profissional";
   const [status, setStatus] = useState<'Conectado' | 'Desconectado'>('Conectado');
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +39,22 @@ export default function WhatsApp() {
       description: "Conexão estabelecida com sucesso (mock)",
     });
   };
+
+  if (isLimited) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader
+          title="Conexão WhatsApp"
+          description="Gerencie a conexão com o WhatsApp para envio de notificações"
+        />
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Acesso à conexão do WhatsApp não está disponível para o seu perfil.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">

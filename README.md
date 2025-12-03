@@ -24,3 +24,11 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Backend integration
+
+- Configure the API base URL through `VITE_API_URL` (default: `http://localhost:3000`). Example: copy `.env.example` to `.env.local` and adjust the value.
+- Authentication flows use the backend endpoints:
+  - `POST /auth/login` with `{ email, password }` returning `access_token`, `refresh_token`, `user`.
+  - `POST /auth/refresh` with `{ refreshToken }` (automatic refresh when a 401 happens).
+  - `POST /auth/logout` with `{ refreshToken }`.
+- All authenticated requests send `Authorization: Bearer <access_token>` and, for company-scoped routes, `X-Company-Id: <companyId>`.

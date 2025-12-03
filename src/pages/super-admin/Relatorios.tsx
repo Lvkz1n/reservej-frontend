@@ -1,22 +1,36 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-
-const revenueData = [
-  { mes: 'Jan', receita: 4500 },
-  { mes: 'Fev', receita: 5200 },
-  { mes: 'Mar', receita: 4800 },
-  { mes: 'Abr', receita: 6100 },
-  { mes: 'Mai', receita: 7200 },
-];
-
-const planDistribution = [
-  { name: 'Free', value: 35, color: 'hsl(var(--muted-foreground))' },
-  { name: 'Basic', value: 40, color: 'hsl(var(--accent))' },
-  { name: 'Pro', value: 25, color: 'hsl(var(--primary))' },
-];
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { adminApi } from "@/services/admin";
+import { toArray } from "@/lib/utils";
 
 export default function Relatorios() {
+  const { data: stats } = useQuery({
+    queryKey: ["admin", "stats"],
+    queryFn: adminApi.getStats,
+  });
+
+  const revenueData = toArray<{ mes: string; receita: number }>((stats as any)?.receitaMensal);
+  const planDistribution = toArray<{ name: string; value: number; color?: string }>((stats as any)?.planos)?.map(
+    (p) => ({
+      name: p.name,
+      value: p.value,
+      color: p.color ?? "hsl(var(--primary))",
+    }),
+  );
+
   return (
     <div className="animate-fade-in">
       <PageHeader

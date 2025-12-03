@@ -1,13 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { mockAgendamentos, mockProfissionais, mockServicos, Agendamento } from "@/mock/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -17,26 +13,68 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-
-type TipoAgenda = 'global' | 'profissional' | 'mista';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { companyApi, CompanyAppointment } from "@/services/company";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Agenda() {
-  const [tipoAgenda, setTipoAgenda] = useState<TipoAgenda>('global');
-  const [selectedProfissional, setSelectedProfissional] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedServico, setSelectedServico] = useState<string>('all');
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const { companyId } = useAuth();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-
-  const filteredAgendamentos = mockAgendamentos.filter((a) => {
-    if (selectedStatus !== 'all' && a.status !== selectedStatus) return false;
-    if (selectedServico !== 'all' && a.servico !== selectedServico) return false;
-    if (tipoAgenda === 'profissional' && selectedProfissional !== 'all' && a.profissional !== selectedProfissional) return false;
-    if (search && !a.clienteNome.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [form, setForm] = useState({
+    clientName: "",
+    clientPhone: "",
+    serviceName: "",
+    date: "",
+    time: "",
+    status: "Pendente",
   });
+  const queryClient = useQueryClient();
+
+  const { data: appointments, isLoading } = useQuery({
+    queryKey: ["company", companyId, "appointments", statusFilter, search],
+    queryFn: () =>
+      companyApi.listAppointments(companyId!, {
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      }),
+    enabled: !!companyId,
+  });
+
+  const createAppointment = useMutation({
+    mutationFn: () => companyApi.createAppointment(companyId!, form),
+    onSuccess: () => {
+      toast({ title: "Agendamento criado", description: "O agendamento foi salvo com sucesso." });
+      queryClient.invalidateQueries({ queryKey: ["company", companyId, "appointments"] });
+      setCreateDialogOpen(false);
+      setForm({ clientName: "", clientPhone: "", serviceName: "", date: "", time: "", status: "Pendente" });
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar o agendamento.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const list = useMemo<CompanyAppointment[]>(() => {
+    if (Array.isArray(appointments)) return appointments;
+    const data = (appointments as any)?.data;
+    return Array.isArray(data) ? data : [];
+  }, [appointments]);
+
+  const filtered = useMemo(() => {
+    const term = search.toLowerCase();
+    return list.filter((item) => {
+      if (term && !item.clientName?.toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }, [list, search]);
 
   return (
     <div className="animate-fade-in">
@@ -50,178 +88,108 @@ export default function Agenda() {
         }}
       />
 
-      {/* Agenda Type Tabs */}
-      <Tabs value={tipoAgenda} onValueChange={(v) => setTipoAgenda(v as TipoAgenda)} className="mb-6">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="global">Global</TabsTrigger>
-          <TabsTrigger value="profissional">Por Profissional</TabsTrigger>
-          <TabsTrigger value="mista">Mista</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {/* Filters */}
       <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar cliente..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            
-            {(tipoAgenda === 'profissional' || tipoAgenda === 'mista') && (
-              <Select value={selectedProfissional} onValueChange={setSelectedProfissional}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Profissional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {mockProfissionais.map((p) => (
-                    <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <Select value={selectedServico} onValueChange={setSelectedServico}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Serviço" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {mockServicos.filter(s => s.ativo).map((s) => (
-                  <SelectItem key={s.id} value={s.nome}>{s.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="Confirmado">Confirmado</SelectItem>
-                <SelectItem value="Pendente">Pendente</SelectItem>
-                <SelectItem value="Cancelado">Cancelado</SelectItem>
-                <SelectItem value="Concluído">Concluído</SelectItem>
-              </SelectContent>
-            </Select>
+        <CardContent className="pt-6 flex flex-wrap gap-4">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar cliente..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
           </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="Confirmado">Confirmado</SelectItem>
+              <SelectItem value="Pendente">Pendente</SelectItem>
+              <SelectItem value="Cancelado">Cancelado</SelectItem>
+              <SelectItem value="Concluído">Concluído</SelectItem>
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
 
-      {/* Agenda Content */}
-      {tipoAgenda === 'mista' && (
-        <div className="grid gap-6 lg:grid-cols-2 mb-6">
-          {mockProfissionais.map((prof) => {
-            const profAgendamentos = filteredAgendamentos.filter(a => a.profissional === prof.nome);
-            return (
-              <Card key={prof.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{prof.nome}</CardTitle>
-                    <StatusBadge status={prof.disponivel ? 'Ativo' : 'Inativo'} />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {profAgendamentos.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                      Nenhum agendamento
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {profAgendamentos.slice(0, 3).map((a) => (
-                        <div key={a.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                          <div>
-                            <p className="font-medium text-sm">{a.clienteNome}</p>
-                            <p className="text-xs text-muted-foreground">{a.servico} • {a.hora}</p>
-                          </div>
-                          <StatusBadge status={a.status} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Main Table */}
-      <DataTable<Agendamento>
+      <DataTable<CompanyAppointment>
         columns={[
-          { key: 'clienteNome', header: 'Cliente' },
-          { key: 'clienteTelefone', header: 'Telefone' },
-          { key: 'servico', header: 'Serviço' },
-          { key: 'data', header: 'Data' },
-          { key: 'hora', header: 'Hora' },
-          ...(tipoAgenda !== 'global' ? [{ key: 'profissional', header: 'Profissional' }] : []),
+          { key: "clientName", header: "Cliente" },
+          { key: "serviceName", header: "Serviço" },
+          { key: "date", header: "Data" },
+          { key: "time", header: "Hora" },
           {
-            key: 'status',
-            header: 'Status',
-            render: (item: Agendamento) => <StatusBadge status={item.status} />,
+            key: "status",
+            header: "Status",
+            render: (item) => <StatusBadge status={item.status} />,
           },
         ]}
-        data={filteredAgendamentos}
+        data={filtered}
+        loading={isLoading}
       />
 
-      {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Novo Agendamento</DialogTitle>
-            <DialogDescription>Preencha os dados para criar um novo agendamento</DialogDescription>
+            <DialogDescription>Cadastre um agendamento</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Cliente</Label>
-              <Input placeholder="Nome do cliente" />
+              <Input
+                placeholder="Nome do cliente"
+                value={form.clientName}
+                onChange={(e) => setForm((p) => ({ ...p, clientName: e.target.value }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Telefone</Label>
-              <Input placeholder="(00) 00000-0000" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Data</Label>
-                <Input type="date" />
-              </div>
-              <div className="space-y-2">
-                <Label>Hora</Label>
-                <Input type="time" />
-              </div>
+              <Input
+                placeholder="(00) 00000-0000"
+                value={form.clientPhone}
+                onChange={(e) => setForm((p) => ({ ...p, clientPhone: e.target.value }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Serviço</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockServicos.filter(s => s.ativo).map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                placeholder="Serviço"
+                value={form.serviceName}
+                onChange={(e) => setForm((p) => ({ ...p, serviceName: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Data</Label>
+                <Input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Hora</Label>
+                <Input
+                  type="time"
+                  value={form.time}
+                  onChange={(e) => setForm((p) => ({ ...p, time: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label>Profissional</Label>
-              <Select>
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={(value) => setForm((p) => ({ ...p, status: value }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockProfissionais.filter(p => p.disponivel).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-                  ))}
+                  <SelectItem value="Pendente">Pendente</SelectItem>
+                  <SelectItem value="Confirmado">Confirmado</SelectItem>
+                  <SelectItem value="Cancelado">Cancelado</SelectItem>
+                  <SelectItem value="Concluído">Concluído</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -230,11 +198,11 @@ export default function Agenda() {
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => {
-              setCreateDialogOpen(false);
-              toast({ title: "Agendamento criado", description: "O agendamento foi criado com sucesso (mock)" });
-            }}>
-              Criar Agendamento
+            <Button
+              onClick={() => createAppointment.mutate()}
+              disabled={createAppointment.isPending || !form.clientName || !form.date}
+            >
+              {createAppointment.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

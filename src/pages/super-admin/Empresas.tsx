@@ -1,10 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { mockEmpresas, Empresa } from "@/mock/data";
-import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,28 +12,52 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Building2, LogIn, Eye } from "lucide-react";
+import { Search, Building2, Eye, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { adminApi, AdminCompany } from "@/services/admin";
+import { toArray } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export default function Empresas() {
+  const { setCompany } = useAuth();
   const navigate = useNavigate();
-  const { enterAsEmpresa } = useAuth();
   const [search, setSearch] = useState("");
-  const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
+  const [selectedEmpresa, setSelectedEmpresa] = useState<AdminCompany | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createPayload, setCreatePayload] = useState({
+    name: "",
+    email: "",
+    plan: "Free",
+  });
+  const queryClient = useQueryClient();
 
-  const filteredEmpresas = mockEmpresas.filter(
-    (e) => e.nome.toLowerCase().includes(search.toLowerCase())
-  );
+  const { data: companies, isLoading } = useQuery({
+    queryKey: ["admin", "companies"],
+    queryFn: adminApi.listCompanies,
+  });
 
-  const handleEnterAsEmpresa = (empresa: Empresa) => {
-    enterAsEmpresa(empresa.id);
-    navigate("/empresa");
-    toast({
-      title: "Acesso realizado",
-      description: `Você está acessando como ${empresa.nome}`,
-    });
-  };
+  const createCompany = useMutation({
+    mutationFn: () => adminApi.createCompany(createPayload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "companies"] });
+      toast({ title: "Empresa criada", description: "A empresa foi criada com sucesso." });
+      setCreateDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao criar",
+        description: "Não foi possível criar a empresa.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const filteredEmpresas = useMemo(() => {
+    const list = toArray<AdminCompany>(companies);
+    return list.filter((e) => (e.name ?? "").toLowerCase().includes(search.toLowerCase()));
+  }, [companies, search]);
 
   return (
     <div className="animate-fade-in">
@@ -45,6 +66,7 @@ export default function Empresas() {
         description="Gerencie todas as empresas cadastradas na plataforma"
         action={{
           label: "Criar Empresa",
+          icon: Plus,
           onClick: () => setCreateDialogOpen(true),
         }}
       >
@@ -59,10 +81,10 @@ export default function Empresas() {
         </div>
       </PageHeader>
 
-      <DataTable<Empresa>
+      <DataTable<AdminCompany>
         columns={[
           {
-            key: 'nome',
+            key: 'name',
             header: 'Empresa',
             render: (item) => (
               <div className="flex items-center gap-3">
@@ -70,17 +92,17 @@ export default function Empresas() {
                   <Building2 className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium">{item.nome}</p>
+                  <p className="font-medium">{item.name}</p>
                   <p className="text-sm text-muted-foreground">ID: {item.id}</p>
                 </div>
               </div>
             ),
           },
-          { key: 'plano', header: 'Plano' },
+          { key: 'plan', header: 'Plano' },
           {
             key: 'status',
             header: 'Status',
-            render: (item) => <StatusBadge status={item.status} />,
+            render: (item) => <StatusBadge status={item.status ?? "Ativo"} />,
           },
           { key: 'agendamentos', header: 'Agendamentos', className: 'text-right' },
           { key: 'mensagensEnviadas', header: 'Mensagens', className: 'text-right' },
@@ -104,10 +126,15 @@ export default function Empresas() {
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleEnterAsEmpresa(item);
+                    setCompany(item.id);
+                    navigate("/empresa");
+                    toast({
+                      title: "Acesso como empresa",
+                      description: `Entrando como ${item.name}`,
+                    });
                   }}
                 >
-                  <LogIn className="h-4 w-4" />
+                  Acessar
                 </Button>
               </div>
             ),
@@ -115,46 +142,43 @@ export default function Empresas() {
         ]}
         data={filteredEmpresas}
         onRowClick={setSelectedEmpresa}
+        loading={isLoading}
       />
 
       {/* Detail Dialog */}
       <Dialog open={!!selectedEmpresa} onOpenChange={() => setSelectedEmpresa(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedEmpresa?.nome}</DialogTitle>
+            <DialogTitle>{selectedEmpresa?.name}</DialogTitle>
             <DialogDescription>Detalhes da empresa</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Plano</p>
-                <p className="font-medium">{selectedEmpresa?.plano}</p>
+                <p className="font-medium">{selectedEmpresa?.plan ?? "N/D"}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Status</p>
-                {selectedEmpresa && <StatusBadge status={selectedEmpresa.status} />}
+                {selectedEmpresa && <StatusBadge status={selectedEmpresa.status ?? "Ativo"} />}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Agendamentos</p>
-                <p className="font-medium">{selectedEmpresa?.agendamentos}</p>
+                <p className="font-medium">{selectedEmpresa?.agendamentos ?? 0}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Mensagens</p>
-                <p className="font-medium">{selectedEmpresa?.mensagensEnviadas}</p>
+                <p className="font-medium">{selectedEmpresa?.mensagensEnviadas ?? 0}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-sm text-muted-foreground">Data de Criação</p>
-                <p className="font-medium">{selectedEmpresa?.dataCriacao}</p>
+                <p className="font-medium">{selectedEmpresa?.createdAt ?? "N/D"}</p>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedEmpresa(null)}>
               Fechar
-            </Button>
-            <Button onClick={() => selectedEmpresa && handleEnterAsEmpresa(selectedEmpresa)}>
-              <LogIn className="h-4 w-4 mr-2" />
-              Entrar como Empresa
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -170,18 +194,32 @@ export default function Empresas() {
           <div className="space-y-4 py-4">
             <div>
               <label className="text-sm font-medium">Nome da Empresa</label>
-              <Input placeholder="Ex: Barbearia Premium" className="mt-1" />
+              <Input
+                placeholder="Ex: Barbearia Premium"
+                className="mt-1"
+                value={createPayload.name}
+                onChange={(e) => setCreatePayload((p) => ({ ...p, name: e.target.value }))}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Email</label>
-              <Input placeholder="contato@empresa.com" className="mt-1" />
+              <Input
+                placeholder="contato@empresa.com"
+                className="mt-1"
+                value={createPayload.email}
+                onChange={(e) => setCreatePayload((p) => ({ ...p, email: e.target.value }))}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Plano</label>
-              <select className="w-full mt-1 h-10 rounded-md border border-input bg-background px-3 text-sm">
-                <option>Free</option>
-                <option>Basic</option>
-                <option>Pro</option>
+              <select
+                className="w-full mt-1 h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={createPayload.plan}
+                onChange={(e) => setCreatePayload((p) => ({ ...p, plan: e.target.value }))}
+              >
+                <option value="Free">Free</option>
+                <option value="Basic">Basic</option>
+                <option value="Pro">Pro</option>
               </select>
             </div>
           </div>
@@ -189,11 +227,11 @@ export default function Empresas() {
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => {
-              setCreateDialogOpen(false);
-              toast({ title: "Empresa criada", description: "A empresa foi criada com sucesso (mock)" });
-            }}>
-              Criar Empresa
+            <Button
+              onClick={() => createCompany.mutate()}
+              disabled={createCompany.isPending || !createPayload.name || !createPayload.email}
+            >
+              {createCompany.isPending ? "Criando..." : "Criar Empresa"}
             </Button>
           </DialogFooter>
         </DialogContent>

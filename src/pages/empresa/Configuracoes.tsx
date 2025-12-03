@@ -39,8 +39,8 @@ export default function Configuracoes() {
   const [tipoAgenda, setTipoAgenda] = useState('global');
   const [createUserDialog, setCreateUserDialog] = useState(false);
   const [primaryColor, setPrimaryColor] = useState('#2563eb');
-  const { user } = useAuth();
-  const isReadOnly = user?.role === 'empresa-atendente' || user?.role === 'empresa-profissional';
+  const { companyRole } = useAuth();
+  const isReadOnly = companyRole === "atendente" || companyRole === "profissional";
 
   const handleSave = (section: string) => {
     toast({
@@ -49,7 +49,7 @@ export default function Configuracoes() {
     });
   };
 
-  if (user?.role === 'empresa-atendente' || user?.role === 'empresa-profissional') {
+  if (companyRole === "atendente" || companyRole === "profissional") {
     return (
       <div className="animate-fade-in">
         <PageHeader

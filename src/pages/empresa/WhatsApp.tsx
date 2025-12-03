@@ -8,8 +8,8 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 
 export default function WhatsApp() {
-  const { user } = useAuth();
-  const isLimited = user?.role === "empresa-atendente" || user?.role === "empresa-profissional";
+  const { companyRole } = useAuth();
+  const isLimited = companyRole === "atendente" || companyRole === "profissional";
   const [status, setStatus] = useState<'Conectado' | 'Desconectado'>('Conectado');
   const [loading, setLoading] = useState(false);
 

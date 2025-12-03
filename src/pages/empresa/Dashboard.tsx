@@ -3,20 +3,23 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { dashboardEmpresa, mockAgendamentos, Agendamento } from "@/mock/data";
 import { Calendar, CalendarCheck, Users, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { companyApi, CompanyAppointment, CompanyDashboard } from "@/services/company";
 
 export default function EmpresaDashboard() {
-  const { user } = useAuth();
-  if (user?.role === 'empresa-atendente') {
+  const { companyRole, companyId } = useAuth();
+  if (companyRole === "atendente") {
     return <Navigate to="/empresa/agenda" replace />;
   }
 
-  const proximosAgendamentos = mockAgendamentos
-    .filter((a) => a.status !== 'Cancelado')
-    .slice(0, 5);
+  const { data: dashboard } = useQuery<CompanyDashboard>({
+    queryKey: ["company", companyId, "dashboard"],
+    queryFn: () => companyApi.getDashboard(companyId!),
+    enabled: !!companyId,
+  });
 
   return (
     <div className="animate-fade-in">
@@ -29,25 +32,25 @@ export default function EmpresaDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <StatCard
           title="Agendamentos Hoje"
-          value={dashboardEmpresa.agendamentosHoje}
+          value={dashboard?.agendamentosHoje ?? 0}
           icon={Calendar}
           variant="primary"
         />
         <StatCard
           title="Agendamentos da Semana"
-          value={dashboardEmpresa.agendamentosSemana}
+          value={dashboard?.agendamentosSemana ?? 0}
           icon={CalendarCheck}
           variant="accent"
         />
         <StatCard
           title="Taxa de Comparecimento"
-          value={`${dashboardEmpresa.taxaComparecimento}%`}
+          value={`${dashboard?.taxaComparecimento ?? 0}%`}
           icon={TrendingUp}
           variant="success"
         />
         <StatCard
           title="Total de Clientes"
-          value={dashboardEmpresa.clientesTotal}
+          value={dashboard?.clientesTotal ?? 0}
           icon={Users}
           variant="warning"
         />
@@ -59,20 +62,20 @@ export default function EmpresaDashboard() {
           <CardTitle className="text-lg">Próximos Agendamentos</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <DataTable<Agendamento>
+          <DataTable<CompanyAppointment>
             columns={[
-              { key: 'clienteNome', header: 'Cliente' },
-              { key: 'servico', header: 'Serviço' },
-              { key: 'data', header: 'Data' },
-              { key: 'hora', header: 'Hora' },
-              { key: 'profissional', header: 'Profissional' },
+              { key: 'clientName', header: 'Cliente' },
+              { key: 'serviceName', header: 'Serviço' },
+              { key: 'date', header: 'Data' },
+              { key: 'time', header: 'Hora' },
+              { key: 'professionalName', header: 'Profissional' },
               {
                 key: 'status',
                 header: 'Status',
                 render: (item) => <StatusBadge status={item.status} />,
               },
             ]}
-            data={proximosAgendamentos}
+            data={dashboard?.proximosAgendamentos ?? []}
           />
         </CardContent>
       </Card>

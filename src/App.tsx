@@ -28,25 +28,55 @@ import Notificacoes from "@/pages/empresa/Notificacoes";
 import WhatsApp from "@/pages/empresa/WhatsApp";
 import Conversas from "@/pages/empresa/Conversas";
 import ConfiguracoesEmpresa from "@/pages/empresa/Configuracoes";
+import RelatoriosEmpresa from "@/pages/empresa/Relatorios";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
-  const { isAuthenticated, user } = useAuth();
-  
+const getCompanyHome = (role?: string | null) => {
+  if (!role) return "/empresa";
+  if (role === "atendente" || role === "profissional") return "/empresa/agenda";
+  return "/empresa";
+};
+
+function ProtectedRoute({
+  children,
+  allowedGlobalRoles,
+  allowedCompanyRoles,
+  requireCompany = false,
+}: {
+  children: React.ReactNode;
+  allowedGlobalRoles?: string[];
+  allowedCompanyRoles?: string[];
+  requireCompany?: boolean;
+}) {
+  const { isAuthenticated, isLoading, roleGlobal, companyRole, companyId } = useAuth();
+
+  if (isLoading) {
+    return null;
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+
+  if (allowedGlobalRoles && !allowedGlobalRoles.includes(roleGlobal ?? "")) {
     return <Navigate to="/login" replace />;
   }
-  
+
+  if (requireCompany && !companyId) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedCompanyRoles && (!companyRole || !allowedCompanyRoles.includes(companyRole))) {
+    return <Navigate to="/login" replace />;
+  }
+
   return <>{children}</>;
 }
 
 function AppRoutes() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, roleGlobal, companyRole, companyId } = useAuth();
+  const companyHome = getCompanyHome(companyRole);
 
   return (
     <Routes>
@@ -54,17 +84,22 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
 
       {/* Public */}
-      <Route path="/login" element={
-        isAuthenticated ? (
-          <Navigate to={user?.role === 'super-admin' ? '/super-admin' : '/empresa'} replace />
-        ) : (
-          <Login />
-        )
-      } />
+      <Route
+        path="/login"
+        element={
+          isAuthenticated
+            ? roleGlobal === "super_admin"
+              ? <Navigate to="/super-admin" replace />
+              : companyId
+                ? <Navigate to={companyHome} replace />
+                : <Login />
+            : <Login />
+        }
+      />
 
       {/* Super Admin Routes */}
       <Route path="/super-admin" element={
-        <ProtectedRoute allowedRoles={['super-admin']}>
+        <ProtectedRoute allowedGlobalRoles={['super_admin']}>
           <SuperAdminLayout />
         </ProtectedRoute>
       }>
@@ -77,7 +112,10 @@ function AppRoutes() {
 
       {/* Empresa Routes */}
       <Route path="/empresa" element={
-        <ProtectedRoute allowedRoles={['empresa-admin', 'empresa-atendente', 'empresa-profissional', 'empresa-leitura']}>
+        <ProtectedRoute
+          allowedCompanyRoles={['admin', 'atendente', 'profissional', 'leitura']}
+          requireCompany
+        >
           <EmpresaLayout />
         </ProtectedRoute>
       }>
@@ -89,6 +127,7 @@ function AppRoutes() {
         <Route path="whatsapp" element={<WhatsApp />} />
         <Route path="conversas" element={<Conversas />} />
         <Route path="configuracoes" element={<ConfiguracoesEmpresa />} />
+        <Route path="relatorios" element={<RelatoriosEmpresa />} />
       </Route>
 
       {/* 404 */}

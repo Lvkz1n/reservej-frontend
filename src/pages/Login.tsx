@@ -1,49 +1,69 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/context/AuthContext";
 import logo from "@/assets/logo.svg";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserRole } from "@/mock/data";
-import { Shield, Building2, Headphones, UserCheck } from "lucide-react";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Loader2, Lock, Mail } from "lucide-react";
 
-const loginOptions: { role: UserRole; label: string; description: string; icon: React.ElementType; redirect: string }[] = [
-  {
-    role: 'super-admin',
-    label: 'Super Admin',
-    description: 'Acesso completo ao sistema',
-    icon: Shield,
-    redirect: '/super-admin'
-  },
-  {
-    role: 'empresa-admin',
-    label: 'Empresa - Admin',
-    description: 'Gerenciar empresa completa',
-    icon: Building2,
-    redirect: '/empresa'
-  },
-  {
-    role: 'empresa-atendente',
-    label: 'Empresa - Atendente',
-    description: 'Gerenciar agendamentos',
-    icon: Headphones,
-    redirect: '/empresa/agenda'
-  },
-  {
-    role: 'empresa-profissional',
-    label: 'Empresa - Profissional',
-    description: 'Visualizar sua agenda',
-    icon: UserCheck,
-    redirect: '/empresa'
-  },
-];
+const formSchema = z.object({
+  email: z.string().email("Informe um e-mail válido"),
+  password: z.string().min(1, "Informe sua senha"),
+});
+
+const getCompanyHome = (role?: string | null) => {
+  if (!role) return "/empresa";
+  if (role === "atendente" || role === "profissional") return "/empresa/agenda";
+  return "/empresa";
+};
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (role: UserRole, redirect: string) => {
-    login(role);
-    navigate(redirect);
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "admin@reserveja.local",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true);
+    try {
+      const user = await login(values);
+      const companyRole = user.companies?.[0]?.role ?? null;
+      const redirectTo = user.role_global === "super_admin" ? "/super-admin" : getCompanyHome(companyRole);
+      navigate(redirectTo, { replace: true });
+      toast({
+        title: "Login realizado",
+        description: "Sessão iniciada com sucesso.",
+      });
+    } catch (error: any) {
+      const message = error?.message ?? "Não foi possível entrar. Verifique as credenciais.";
+      toast({
+        title: "Falha ao autenticar",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -64,32 +84,82 @@ export default function Login() {
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-xl text-white">Acesso ao Sistema</CardTitle>
             <CardDescription className="text-white/70">
-              Selecione o tipo de acesso para continuar
+              Autentique com seu e-mail e senha para acessar o painel
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            {loginOptions.map((option) => (
-              <Button
-                key={option.role}
-                variant="outline"
-                className="w-full h-auto py-4 px-4 justify-start gap-4 border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-primary/40 transition-all duration-200"
-                onClick={() => handleLogin(option.role, option.redirect)}
-              >
-                <div className="p-2 rounded-lg bg-primary/15 text-primary">
-                  <option.icon className="h-5 w-5" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-white">{option.label}</p>
-                  <p className="text-xs text-white/70">{option.description}</p>
-                </div>
-              </Button>
-            ))}
+          <CardContent className="space-y-4 pt-2">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-white">E-mail</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                          <Input
+                            type="email"
+                            placeholder="admin@reserveja.local"
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/60"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-white">Senha</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                          <Input
+                            type="password"
+                            placeholder="••••••••"
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/60"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button
+                  type="submit"
+                  className="w-full h-auto py-3 bg-primary text-primary-foreground"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Entrando...
+                    </div>
+                  ) : (
+                    "Entrar"
+                  )}
+                </Button>
+              </form>
+            </Form>
+
+            <div className="text-xs text-white/60 bg-white/5 border border-white/10 rounded-lg p-3">
+              Para testes locais use <span className="text-white font-semibold">admin@reserveja.local</span> /
+              <span className="text-white font-semibold"> admin123</span> (super_admin).
+            </div>
           </CardContent>
         </Card>
 
         {/* Footer */}
         <p className="text-center text-sm text-white/60 mt-6">
-          Sistema mockado • Dados de demonstração
+          Back: {import.meta.env.VITE_API_URL ?? "http://localhost:3000"} - tokens com refresh automático
         </p>
       </div>
     </div>

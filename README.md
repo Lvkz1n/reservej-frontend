@@ -14,6 +14,25 @@ npm i
 npm run dev
 ```
 
+## Deploy com Docker (Easypanel)
+
+- Build da imagem (ajuste `VITE_API_URL` conforme o backend disponível):
+
+```sh
+docker build -t reservej-frontend --build-arg VITE_API_URL=https://sua-api.com .
+```
+
+- Rodar localmente a imagem para validar (expõe Nginx na porta 80 do container):
+
+```sh
+docker run -d -p 8080:80 --name reservej-frontend reservej-frontend
+```
+
+- No Easypanel, crie um app Docker apontando para este repositório e Dockerfile padrão:
+  - Build args: `VITE_API_URL=https://sua-api.com` (ou deixe o padrão se for localhost).
+  - Porta interna: `80`.
+  - Não é necessário volume; apenas servir estático.
+
 ## What technologies are used for this project?
 
 This project is built with:

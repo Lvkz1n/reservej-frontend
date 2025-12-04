@@ -25,6 +25,7 @@ import {
   X,
   ChevronRight,
   Smartphone,
+  BarChart3,
 } from "lucide-react";
 
 const menuItems = [

@@ -27,6 +27,30 @@ export type AdminDashboard = {
   crescimentoAgendamentos?: number;
 };
 
+const normalizeDashboard = (payload: any): AdminDashboard => ({
+  totalEmpresas: payload?.totalEmpresas ?? payload?.total_empresas ?? 0,
+  empresasAtivas: payload?.empresasAtivas ?? payload?.empresas_ativas ?? 0,
+  agendamentosMes:
+    payload?.agendamentosMes ??
+    payload?.agendamentos_mes ??
+    payload?.agendamentos_semana ??
+    0,
+  mensagensEnviadas:
+    payload?.mensagensEnviadas ??
+    payload?.mensagens_enviadas ??
+    payload?.mensagens ??
+    0,
+  crescimentoEmpresas:
+    payload?.crescimentoEmpresas ??
+    payload?.crescimento_empresas ??
+    payload?.crescimento ??
+    0,
+  crescimentoAgendamentos:
+    payload?.crescimentoAgendamentos ??
+    payload?.crescimento_agendamentos ??
+    0,
+});
+
 export const adminApi = {
   listCompanies: () => apiClient.get<AdminCompany[]>("/admin/companies"),
   createCompany: (payload: Partial<AdminCompany> & { email?: string; plan?: string }) =>
@@ -38,6 +62,9 @@ export const adminApi = {
   createPlan: (payload: Partial<AdminPlan>) => apiClient.post<AdminPlan>("/admin/plans", payload),
   updatePlan: (id: string, payload: Partial<AdminPlan>) =>
     apiClient.patch<AdminPlan>(`/admin/plans/${id}`, payload),
-  getDashboard: () => apiClient.get<AdminDashboard>("/admin/dashboard"),
+  getDashboard: async () => {
+    const raw = await apiClient.get("/admin/dashboard");
+    return normalizeDashboard(raw);
+  },
   getStats: () => apiClient.get("/admin/stats"),
 };

@@ -149,18 +149,8 @@ export default function Login() {
                 </Button>
               </form>
             </Form>
-
-            <div className="text-xs text-white/60 bg-white/5 border border-white/10 rounded-lg p-3">
-              Para testes locais use <span className="text-white font-semibold">admin@reserveja.local</span> /
-              <span className="text-white font-semibold"> admin123</span> (super_admin).
-            </div>
           </CardContent>
         </Card>
-
-        {/* Footer */}
-        <p className="text-center text-sm text-white/60 mt-6">
-          Back: {import.meta.env.VITE_API_URL ?? "http://localhost:3000"} - tokens com refresh automático
-        </p>
       </div>
     </div>
   );

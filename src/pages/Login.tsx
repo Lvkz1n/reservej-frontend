@@ -16,11 +16,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Loader2, Lock, Mail } from "lucide-react";
+import { Loader2, Lock, Mail, RotateCcw } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email("Informe um e-mail válido"),
   password: z.string().min(1, "Informe sua senha"),
+  captcha: z.string().min(1, "Resolva o desafio para continuar"),
 });
 
 const getCompanyHome = (role?: string | null) => {
@@ -29,23 +30,42 @@ const getCompanyHome = (role?: string | null) => {
   return "/empresa";
 };
 
+const generateCaptcha = () => {
+  const a = Math.floor(Math.random() * 8) + 2;
+  const b = Math.floor(Math.random() * 8) + 2;
+  return { question: `${a} + ${b}`, answer: a + b };
+};
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [captcha, setCaptcha] = useState(generateCaptcha());
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "admin@reserveja.local",
       password: "",
+      captcha: "",
     },
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
+      if (Number(values.captcha) !== captcha.answer) {
+        toast({
+          title: "Captcha incorreto",
+          description: "Resolva o desafio para continuar.",
+          variant: "destructive",
+        });
+        setCaptcha(generateCaptcha());
+        form.setValue("captcha", "");
+        return;
+      }
+
       const user = await login(values);
       const companyRole = user.companies?.[0]?.role ?? null;
       const redirectTo = user.role_global === "super_admin" ? "/super-admin" : getCompanyHome(companyRole);
@@ -124,6 +144,41 @@ export default function Login() {
                             type="password"
                             placeholder="••••••••"
                             className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/60"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="captcha"
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel className="text-white">Validação</FormLabel>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCaptcha(generateCaptcha());
+                            form.setValue("captcha", "");
+                          }}
+                          className="flex items-center gap-1 text-xs text-white/70 hover:text-white"
+                          aria-label="Atualizar desafio"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Trocar
+                        </button>
+                      </div>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            placeholder={`Resolva: ${captcha.question}`}
+                            className="bg-white/5 border-white/10 text-white placeholder:text-white/60"
                             {...field}
                           />
                         </div>
